@@ -1,0 +1,57 @@
+apply plugin: 'cpp'
+
+def configTokens = [
+	VERSION_MAJOR: VERSION_MAJOR.toString(),
+	VERSION_MINOR: VERSION_MINOR.toString(),
+	VERSION_RELEASE: VERSION_RELEASE.toString(),
+	VERSION_REV: ""
+]
+
+task gitRevision(type: Exec) {
+	commandLine "git", "describe", "--tags", "--always", "--dirty"
+	standardOutput = new ByteArrayOutputStream()
+	ext.output = {
+		return standardOutput.toString().trim()
+	}
+}
+
+gitRevision.doLast {
+	configTokens["VERSION_REV"] = gitRevision.output()
+}
+
+import org.apache.tools.ant.filters.ReplaceTokens
+task initConfig(type: Copy, dependsOn: [gitRevision]) {
+	outputs.upToDateWhen { false }
+	from "include/narf/version.h.in"
+	into ("$buildDir/include/narf/")
+	filter(ReplaceTokens, tokens: configTokens)
+	rename '(.*).in', '$1'
+}
+
+model {
+	components {
+		narflib(NativeLibrarySpec) {
+			sources {
+				cpp {
+					source {
+						srcDir "."
+						include "**/*.cpp"
+						exclude "test/*"
+					}
+				}
+			}
+		}
+	}
+	binaries {
+		all {
+			cppCompiler.args "--std=c++11", "-I", file("include").absolutePath
+			tasks.withType(CppCompile) {
+				dependsOn initConfig
+			}
+		}
+	}
+}
+
+task wrapper(type: Wrapper) {
+	gradleVersion = '3.2.1'
+}
