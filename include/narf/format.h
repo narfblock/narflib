@@ -8,6 +8,7 @@
 
 namespace narf {
 	namespace util {
+		std::string format(const std::string fmt_str, va_list argp);
 		std::string format(const std::string fmt_str, ...);
 	}
 }
